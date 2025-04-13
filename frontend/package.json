@@ -12,7 +12,7 @@
     "@headlessui/react": "^1.7.17",
     "@hello-pangea/dnd": "^16.3.0",
     "@heroicons/react": "^2.0.18",
-    "@reduxjs/toolkit": "^2.0.0",
+    "@reduxjs/toolkit": "^2.6.1",
     "autoprefixer": "^10.4.16",
     "axios": "^1.8.1",
     "clsx": "^2.0.0",
@@ -22,7 +22,7 @@
     "react-dropzone": "^14.2.3",
     "react-hot-toast": "^2.5.2",
     "react-markdown": "^8.0.7",
-    "react-redux": "^9.0.0",
+    "react-redux": "^9.2.0",
     "tailwindcss": "^3.3.3"
   },
   "devDependencies": {
@@ -34,7 +34,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
-    "vite": "^4.4.5",
+    "vite": "^6.2.6",
     "vitest": "^3.0.9"
   }
 }

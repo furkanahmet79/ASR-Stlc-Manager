@@ -1,15 +1,16 @@
 from utils.file_handler import FileHandler
 from utils.model_client import LLMClient
 from utils.text_processor import TextProcessor
+from core.prompt_manager import get_base_prompt, save_session_data
 import logging
 import os
 import sys
+from datetime import datetime
 
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
     handlers=[
-        # logging.StreamHandler(sys.stdout),  # Console'a yazdırma
         logging.FileHandler('review_service.log')  # Dosyaya yazdırma
     ]
 )
@@ -18,21 +19,7 @@ logger = logging.getLogger("ReviewService")
 logger.debug("Test log message - If you see this, logging is working!")
 
 class ReviewService:
-    CODE_REVIEW_PROMPT = """Please perform a comprehensive code review of the following codebase. 
-Focus on:
-1. Overall architecture and code organization
-2. Code quality and best practices
-3. Potential bugs and issues
-4. Security considerations
-5. Performance implications
-6. Suggestions for improvement
-
-Please provide specific examples and recommendations where applicable.
-
-Code to review:
-{code}
-"""
-
+    # Sabit tanımlı prompt kaldırıldı - tamamen veritabanından çekilecek
 
     def __init__(self):
         self.file_handler = FileHandler()
@@ -41,7 +28,7 @@ Code to review:
         self.logger = logging.getLogger(__name__)
         self.logger.debug("ReviewService initialized")
 
-    async def run_code_review(self, files, model_key=None):
+    async def run_code_review(self, files, model_key=None, custom_prompt=None):
         try:
             self.logger.debug(f"Starting code review for {len(files)} files with model: {model_key}")
             
@@ -56,7 +43,8 @@ Code to review:
             
             # Model seçimi için LLMClient oluştur
             model_client = LLMClient()
-            self.logger.info(f"##### Model key: {model_key}")
+            self.logger.info(f"Model key: {model_key}")
+            model_name = None
             if model_key:
                 model_name = model_client.get_model_identifier(model_key)
                 model_client = LLMClient(model_name)
@@ -69,8 +57,35 @@ Code to review:
             
             if not combined_content.strip():
                 raise ValueError("No content to review")
-                
-            review_prompt = self.CODE_REVIEW_PROMPT.format(code=combined_content)
+            
+            # Prompt seçimi - yalnızca veritabanından
+            used_prompt = None
+            prompt_source = None
+            
+            if custom_prompt:
+                used_prompt = custom_prompt
+                prompt_source = "custom_parameter"
+                self.logger.info("Using custom prompt provided by user in this request")
+            else:
+                # Veritabanından özel prompt çek
+                db_base_prompt = get_base_prompt("code_review")
+                if db_base_prompt:
+                    used_prompt = db_base_prompt
+                    prompt_source = "base_db"
+                    self.logger.info("Using user-edited prompt")
+                else:
+                    # Veritabanından temel prompt çek
+                    db_base_prompt = get_base_prompt("code_review")
+                    if db_base_prompt:
+                        used_prompt = db_base_prompt
+                        prompt_source = "base_db"
+                        self.logger.info("Using base prompt from database")
+                    else:
+                        # Veritabanında prompt yoksa hata fırlat
+                        raise ValueError("No prompt found in database for code_review process. Please add a prompt to the database.")
+            
+            # Prompt'a kodu ekle
+            review_prompt = used_prompt.format(code=combined_content)
             
             MAX_TOKENS = 4000
             if len(review_prompt.split()) > MAX_TOKENS:
@@ -93,6 +108,27 @@ Code to review:
             file_names = [os.path.basename(path) for path in file_paths]
             files_header = "Files analyzed:\n" + "\n".join(file_names)
             
+            # Session verilerini kaydet
+            session_data = {
+            "process_type": "code_review",
+            "model_name": model_name,
+            "uploaded_files": [
+        {
+            "file_name": name,
+            "file_content": self.file_handler.read_file(path)
+        } for name, path in zip(file_names, file_paths)
+    ],
+    "used_prompt": review_prompt,
+    # Eğer custom prompt varsa edited_prompt olarak ekle
+    "edited_prompt": custom_prompt if custom_prompt else None
+            }
+            
+            # Prompt metni çok büyük olabileceği için sınırlı bir kısmını kaydet
+            session_data["prompt_text_sample"] = used_prompt[:200] + "..." if len(used_prompt) > 200 else used_prompt
+            
+            # Session verisini kaydet ve session_id'yi al
+            save_session_data(session_data)
+            
             # Cleanup temporary files
             for path in file_paths:
                 try:
@@ -106,7 +142,11 @@ Code to review:
                 "reviews": [{
                     "files": files_header,
                     "review": final_review
-                }]
+                }],
+                "prompt_info": {
+                    "source": prompt_source
+                },
+                "session_id": session_data.get("session_id", "unknown")
             }
 
         except Exception as e:

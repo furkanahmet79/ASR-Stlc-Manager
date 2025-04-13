@@ -5,13 +5,10 @@ export const runCodeReview = createAsyncThunk(
   'codeReview/runReview',
   async ({files, model}) => {
     try {
-      // Ensure files is at least an empty array
-      const safeFiles = files || [];
-      
       // Show the selected model in an alert
-      window.alert(`codereviewslice Selected model: ${model}`);
+      window.alert(`Selected model: ${model}`);
       
-      const response = await processService.runCodeReview(safeFiles, model);
+      const response = await processService.runCodeReview(files, model);
       if (!response || !response.reviews) {
         throw new Error('Invalid response format');
       }
@@ -21,8 +18,6 @@ export const runCodeReview = createAsyncThunk(
     }
   }
 );
-
-
 
 const codeReviewSlice = createSlice({
   name: 'codeReview',

@@ -5,6 +5,7 @@ from stlc.code_review import router as code_review_router
 from routers.test_scenario_generation_router import router as test_scenario_router
 from stlc.test_scenario_generation import generate_prompt
 import logging
+from routers.prompt_router import router as prompt_router
 
 # from stlc.requirement_analysis import router as requirement_analysis_router
 # from stlc.test_planning import router as test_planning_router
@@ -18,7 +19,11 @@ app = FastAPI(
 # CORS ayarları
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",  # React uygulamanızın çalıştığı port
+        "http://127.0.0.1:3000",
+        "*"  # Geliştirme aşamasında tüm originlere izin vermek için
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,6 +32,7 @@ app.add_middleware(
 # Router ekleme
 app.include_router(code_review_router, prefix="/api/processes/code-review")
 app.include_router(test_scenario_router, prefix="/api/processes/test-scenario-generation")
+app.include_router(prompt_router)  # Yeni eklendi
 # app.include_router(requirement_analysis_router, prefix="/api/processes/requirement-analysis")
 # app.include_router(test_planning_router, prefix="/api/processes/test-planning")
 

@@ -19,6 +19,8 @@ export default function TabPanel({
   onProcessSelect,
   processFiles,
   onFileUpload,
+  onAIModelUpdate,
+  aiModels,
   processPrompts,
   onPromptUpdate,
   pipelineStatus,
@@ -44,15 +46,85 @@ export default function TabPanel({
     setActiveTab(processId);
   };
 
-  const handleEditPrompt = (processId) => {
-    setEditingPrompt(processId);
-    setTempPrompt(processPrompts[processId] || '');
+  const handleEditPrompt = async (processId) => {
+    try {
+      // Eğer geçici bir prompt varsa, base prompt'u fetch et
+      const currentPrompt = processPrompts[processId];
+  
+      if (currentPrompt?.isTemporary) {
+        const response = await fetch(`http://localhost:8000/api/prompts/${processId}`);
+  
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Base prompt fetch failed');
+        }
+  
+        const data = await response.json();
+        setEditingPrompt(processId);
+        setTempPrompt(data.prompt);
+        return;
+      }
+  
+      // Normal edit işlemi
+      const response = await fetch(`http://localhost:8000/api/prompts/${processId}`);
+  
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Base prompt fetch failed');
+      }
+  
+      const data = await response.json();
+      setEditingPrompt(processId);
+      setTempPrompt(data.prompt);
+    } catch (error) {
+      console.error('Base prompt fetch error:', error);
+      setEditingPrompt(processId);
+      setTempPrompt(`Error: ${error.message}`);
+    }
   };
-
-  const handleSavePrompt = (processId) => {
-    onPromptUpdate(processId, tempPrompt);
-    setEditingPrompt(null);
+  
+  const handleSavePrompt = async (processId) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/prompts/${processId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: tempPrompt }),
+      });
+  
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to save prompt');
+      }
+  
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (parseError) {
+        console.error('Response parse error:', parseError);
+        throw new Error('Invalid response from server');
+      }
+  
+      // Prompt'u güncelle
+      onPromptUpdate(processId, {
+        prompt_text: tempPrompt,
+        process_type: processId,
+        isTemporary: false,
+      });
+  
+      setEditingPrompt(null);
+      alert('Prompt successfully saved');
+    } catch (error) {
+      console.error('Prompt save error:', error);
+      if (error instanceof TypeError) {
+        alert('Network error. Please check your connection.');
+      } else {
+        alert(`Error saving prompt: ${error.message}`);
+      }
+    }
   };
+  
 
   const handleRun = (processId, files) => {
     // processId bilgisini çıktıya eklemek için
@@ -190,7 +262,9 @@ export default function TabPanel({
           <div className="bg-gray-50 rounded-lg p-4">
             {FormComponent ? (
               <FormComponent 
-                process={process} 
+                process={process}
+                onAIModelUpdate={onAIModelUpdate}
+                aiModels={aiModels}
                 onGeneratePrompt={async (formData) => {
                   try {
                     const response = await onGeneratePrompt(processId, formData);
@@ -218,6 +292,9 @@ export default function TabPanel({
     const process = processes.find(p => p.id === processId);
     const currentPrompt = processPrompts[processId];
   
+    // Extract the prompt text from the prompt object
+    const promptText = currentPrompt?.prompt_text || currentPrompt?.content || process?.defaultPrompt || 'No prompt set';
+    
     return (
       <div className="space-y-4">
         <h3 className="text-lg font-medium text-gray-900">Process Prompt</h3>
@@ -247,7 +324,7 @@ export default function TabPanel({
           <div className="space-y-3">
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-gray-600 whitespace-pre-wrap">
-                {currentPrompt || process?.defaultPrompt || 'No prompt set'}
+                {promptText}
               </p>
             </div>
             <button

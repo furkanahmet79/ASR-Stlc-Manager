@@ -19,6 +19,7 @@ function AppContents() {
 	const [selectedProcesses, setSelectedProcesses] = useState(new Set());
 	const [processOrigins, setProcessOrigins] = useState({}); // { processId: 'manual' | 'auto' }
 	const [processFiles, setProcessFiles] = useState({});
+	const [aiModels, setAIModels] = useState({});  // New state for AI models
 	const [processPrompts, setProcessPrompts] = useState({});
 	const [output, setOutput] = useState(null);
 	const [pipelineStatus, setPipelineStatus] = useState({});
@@ -34,15 +35,17 @@ function AppContents() {
 	// Output state'ini bir obje olarak tutacağız
 	const [outputs, setOutputs] = useState({});
 
+	const [generatedPrompt, setGeneratedPrompt] = useState("");
+
+	// Combined file upload function that supports both direct and centralized file management
 	const handleFileUpload = async (processIdOrFiles, fileTypeOrInfo) => {
-		console.log('[App] File upload triggered with:', processIdOrFiles, fileTypeOrInfo);
+		console.log('[App] File upload triggered');
 		
 		if (Array.isArray(processIdOrFiles)) {
 			try {
 				const files = processIdOrFiles;
 				const fileType = fileTypeOrInfo;
 				console.log(`[App] Centralized file upload with type: ${fileType}`);
-				console.log('[App] Files to upload:', files);
 				
 				const newFiles = Array.from(files).map(file => ({
 					id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -52,14 +55,8 @@ function AppContents() {
 					file: file, // Orijinal File nesnesini sakla
 					uploadDate: new Date().toISOString()
 				}));
-				
-				console.log('[App] Prepared new files:', newFiles);
-				
-				setManagedFiles(prev => {
-					const updated = [...prev, ...newFiles];
-					console.log('[App] Updated managed files:', updated);
-					return updated;
-				});
+	
+				setManagedFiles(prev => [...prev, ...newFiles]);
 			} catch (error) {
 				console.error('File upload error:', error);
 				setValidationError('An error occurred while uploading the file');
@@ -67,31 +64,34 @@ function AppContents() {
 		} else {
 			const processId = processIdOrFiles;
 			const fileInfo = fileTypeOrInfo;
-			console.log(`[App] Direct file upload for process ${processId}:`, fileInfo);
+			console.log(`[App] Direct file upload for process ${processId}: ${fileInfo.file.name} (type: ${fileInfo.type})`);
 			
-			setProcessFiles(prev => {
-				const updated = {
-					...prev,
-					[processId]: [...(prev[processId] || []), fileInfo]
-				};
-				console.log(`[App] Updated process files for ${processId}:`, updated[processId]);
-				return updated;
-			});
+			setProcessFiles(prev => ({
+				...prev,
+				[processId]: [...(prev[processId] || []), fileInfo]
+			}));
 		}
 	};
-	
 
 	const handlePromptUpdate = (processId, newPrompt) => {
 		console.log(`[App] Prompt updated for process ${processId}:`, newPrompt);
 		
-		// Store exactly what was passed, no transformations
+		// Ensure consistent structure
+		const updatedPrompt = typeof newPrompt === 'object' ? newPrompt : { content: newPrompt };
+		
 		setProcessPrompts(prev => ({
-		  ...prev,
-		  [processId]: newPrompt
+			...prev,
+			[processId]: updatedPrompt
 		}));
-	  };
-	
+	};
 
+	const handleAIModelUpdate = (processId, model) => {
+		console.log(`[App] AI Model updated for process ${processId}:`, model);
+		setAIModels(prev => ({
+			...prev,
+			[processId]: model
+		}));
+	};
 
 	// Complex process selection function from second App.jsx with automatic selection features
 	const handleProcessSelect = (processId) => {
@@ -289,126 +289,64 @@ function AppContents() {
 		console.log(`[App] Starting process with processId: '${processId}'`);
 		
 		try {
-		  setPipelineStatus(prev => ({
-			...prev,
-			[processId]: 'running'
-		  }));
-		  
-		  // File handling code remains the same...
-		  let files = filesArg;
-		  if (!files) {
-			// Existing file handling logic...
-		  }
-		  
-		  // Display files in alert...
-		  
-		  if (processId === 'code-review') {
-			console.log('[App] Running code review');
-			
-			// Get model directly from the element
-			const selectElement = document.querySelector('select');
-			const model = selectElement ? selectElement.value : 'default model';
-			
-			// Debug current file state
-			console.log(`[App] Current processFiles:`, processFiles);
-			console.log(`[App] Current managedFiles:`, managedFiles);
-			console.log(`[App] Current fileProcessMappings:`, fileProcessMappings);
-			
-			// APPROACH 1: Try to get files from processFiles
-			let codeReviewFiles = processFiles['code-review'] || [];
-			console.log(`[App] Files from processFiles for code-review:`, codeReviewFiles);
-			
-			// APPROACH 2: Try to get files from managed files
-			if (codeReviewFiles.length === 0) {
-			  // Find mapped files
-			  const mappedFileIds = Object.entries(fileProcessMappings)
-				.filter(([_, processes]) => processes.includes('code-review'))
-				.map(([fileId]) => fileId);
-			  
-			  console.log(`[App] File IDs mapped to code-review:`, mappedFileIds);
-			  
-			  if (mappedFileIds.length > 0) {
-				const mappedFiles = managedFiles.filter(file => mappedFileIds.includes(file.id));
-				console.log(`[App] Files from managedFiles mapped to code-review:`, mappedFiles);
-				codeReviewFiles = mappedFiles;
-			  }
-			}
-			
-			// APPROACH 3: If files were passed directly to this function, use those
-			if (files && files.length > 0) {
-			  console.log(`[App] Files passed directly to handleProcessRun:`, files);
-			  codeReviewFiles = files;
-			}
-			
-			// If we still don't have files, try to use any managed files
-			if (codeReviewFiles.length === 0 && managedFiles.length > 0) {
-			  console.log(`[App] No files specifically for code-review, using any available managed files`);
-			  codeReviewFiles = managedFiles;
-			}
-			
-			console.log(`[App] Final files selected for code review:`, codeReviewFiles);
-			
-			// If we still don't have files, notify the user
-			if (codeReviewFiles.length === 0) {
-			  window.alert('No files found for code review. Please upload files first.');
-			  throw new Error('No files selected for code review. Please upload files first.');
-			}
-			
-			// Now create a clean array of File objects, not file info objects
-			const cleanFiles = codeReviewFiles.map(fileInfo => {
-			  if (fileInfo instanceof File) return fileInfo;
-			  return fileInfo.file || fileInfo;
-			}).filter(file => file instanceof File);
-			
-			console.log(`[App] Clean File objects for code review:`, cleanFiles);
-			
-			// Final check before proceeding
-			if (cleanFiles.length === 0) {
-			  window.alert('Files found but not in correct format. Please upload files again.');
-			  throw new Error('Files found but not in correct format. Please upload files again.');
-			}
-			
-			try {
-			  await dispatch(runCodeReview({files: cleanFiles, model})).unwrap();
-			  console.log('[App] Code review completed successfully');
-		  
-			  
-			  // Redux state'ini kullan
-			  if (error) {
-				throw new Error(error);
-			  }
-			  
-			  setOutputs(prev => ({
+			setPipelineStatus(prev => ({
 				...prev,
-				[processId]: {
-				  content: reviews.join('\n\n'),
-				  status: status === 'succeeded' ? 'completed' : 'error',
-				  processType: 'Code Review',
-				  processId,
-				  timestamp: new Date().toISOString()
+				[processId]: 'running'
+			}));
+			console.log(`[App] Pipeline status set to 'running' for ${processId}`);
+			
+			// Determine files to use - support both direct file passing and centralized file management
+			let files = filesArg;
+			if (!files) {
+				const relevantFiles = managedFiles.filter(file => 
+					fileProcessMappings[file.id]?.includes(processId)
+				);
+				
+				if (relevantFiles.length > 0) {
+					files = relevantFiles;
+					console.log(`[App] Using ${relevantFiles.length} files from centralized management`);
+				} else {
+					files = processFiles[processId] || [];
+					console.log(`[App] Using ${files.length} files from process-specific storage`);
 				}
-			  }));
-			  
-			} catch (error) {
-			  console.error('[App] Code review failed:', error);
-			  setPipelineStatus(prev => ({
-				...prev,
-				[processId]: 'error'
-			  }));
-			  setOutputs(prev => ({
-				...prev,
-				[processId]: {
-				  content: `Error: ${error.message}`,
-				  status: 'error',
-				  processType: 'Code Review',
-				  processId,
-				  timestamp: new Date().toISOString()
-				}
-			  }));
 			}
-		  }
-		  
-			else if (processId === 'test-planning') {
+			
+			console.log(`[App] Processing with ${files.length} files`);
+			
+			// Windows pop-up ile kullanılan dosyaları göster
+			if (files.length > 0) {
+				const fileNames = files.map(file => file.name || file.file?.name || 'Unnamed File').join('\n');
+				window.alert(`Processing ${processId} with the following files:\n\n${fileNames}`);
+			} else {
+				window.alert(`Processing ${processId} with no files selected.`);
+			}
+	
+			let result;
+			if (processId === 'code-review') {
+				console.log('[App] Running code review with ai model', aiModels);
+				
+				// Get the selected AI model for code review
+				const selectedModel = aiModels[processId] || 'default';
+				console.log(`[App] Using AI model for code review: ${selectedModel}`);
+				
+				await dispatch(runCodeReview({files, model: selectedModel})).unwrap();
+				
+				if (error) {
+					throw new Error(error);
+				}
+				
+				setOutputs(prev => ({
+					...prev,
+					[processId]: {
+						content: reviews.join('\n\n'),
+						status: status === 'succeeded' ? 'completed' : 'error',
+						processType: 'Code Review',
+						processId,
+						timestamp: new Date().toISOString(),
+						model: selectedModel  // Include the model used in the output
+					}
+				}));
+			} else if (processId === 'test-planning') {
 				console.log('[App] Running test planning');
 				const formData = new FormData();
 				files.forEach(fileInfo => {
@@ -678,7 +616,7 @@ function AppContents() {
 		try {
 			const response = await axios.post('/api/test-scenario-generation/run', {
 				prompt: generatedPrompt,
-				// diğer gerekli parametreler...
+
 			});
 			// Process Result alanını güncelle
 			setProcessResult(response.data.result);
@@ -700,6 +638,8 @@ function AppContents() {
 					onProcessSelect={handleProcessSelect}
 					processFiles={processFiles}
 					onFileUpload={handleFileUpload}
+					onAIModelUpdate={handleAIModelUpdate}
+					aiModels={aiModels}
 					processPrompts={processPrompts}
 					onPromptUpdate={handlePromptUpdate}
 					pipelineStatus={pipelineStatus}
@@ -715,7 +655,7 @@ function AppContents() {
 					onFileDelete={handleFileDelete}
 					selectedFileIds={selectedFileIds}
 					setSelectedFileIds={setSelectedFileIds}
-					onGeneratePrompt={handleGeneratePrompt}  // Add this line
+					onGeneratePrompt={handleGeneratePrompt}
 				/>
 			</main>
 		</div>

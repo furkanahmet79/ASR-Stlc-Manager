@@ -27,67 +27,34 @@ export const processService = {
     }
   },
 
-  async runCodeReview(files = [], model = null) {
+  async runCodeReview(files, model = null) {
     console.log('[ProcessService] Running code review with model:', model);
-    console.log('[ProcessService] Files received:', files);
     
     const formData = new FormData();
-    
-    // Check if we have files
-    if (!files || files.length === 0) {
-      console.error('[ProcessService] No files provided for code review');
-      throw new Error('No files provided for code review');
-    }
-    
-    // Add each file to FormData
-    files.forEach((file, index) => {
-      if (file instanceof File) {
-        console.log(`[ProcessService] Adding file to FormData: ${file.name}`);
-        formData.append('files', file);
-      } else if (file.file instanceof File) {
-        console.log(`[ProcessService] Adding file from object to FormData: ${file.file.name}`);
-        formData.append('files', file.file);
-      } else {
-        console.error(`[ProcessService] Invalid file at index ${index}:`, file);
-        // Instead of throwing error, create a test file
-        const testContent = 'console.log("Test file content");';
-        const testFile = new File([testContent], 'fallback-test-file.js', { type: 'application/javascript' });
-        console.log(`[ProcessService] Adding fallback test file instead: ${testFile.name}`);
-        formData.append('files', testFile);
-      }
+    files.forEach(fileInfo => {
+      const file = fileInfo.file || fileInfo;
+      formData.append('files', file);
     });
     
     if (model) {
       formData.append('model', model);
     }
-    
-    // Debug FormData content
-    console.log('[ProcessService] FormData entries:');
-    for (let pair of formData.entries()) {
-      console.log(`  ${pair[0]}: ${pair[1] instanceof File ? pair[1].name : pair[1]}`);
-    }
-    
+
     try {
-      // Make sure we're sending to the correct endpoint
-      const endpoint = `${API_BASE_URL}/code-review/run`;
-      console.log(`[ProcessService] Sending request to: ${endpoint}`);
-      
-      const response = await fetch(endpoint, {
+      const response = await fetch(`${API_BASE_URL}/code-review/run`, {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: {
+          'Accept': 'application/json'
+        }
       });
-      
-      console.log(`[ProcessService] Response status: ${response.status}`);
-      
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[ProcessService] Backend error ${response.status}: ${errorText}`);
-        throw new Error(`Backend error: ${response.status} - ${errorText}`);
+        throw new Error(`Backend error: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      console.log(`[ProcessService] Response data:`, data);
-      
+      // Redux action payload formatına uygun dönüş
       return {
         reviews: data.reviews.map(review => `## Files Analyzed\n${review.files}\n\n## Review\n${review.review}`),
         metadata: {
@@ -96,11 +63,10 @@ export const processService = {
         }
       };
     } catch (error) {
-      console.error('[ProcessService] Error in runCodeReview:', error);
       throw error;
     }
   },
-  
+
   // Yeni eklenen requirement analysis metodu
   async runRequirementAnalysis(files, customPrompt = null) {
     const formData = new FormData();

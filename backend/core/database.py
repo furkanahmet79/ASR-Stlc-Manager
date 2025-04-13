@@ -21,9 +21,8 @@ def get_db():
     """
     try:
         logger.info(f"Connecting to MongoDB (sync): {MONGO_URI}")
-        client = MongoClient(MONGO_URI, 
-                           tlsCAFile=certifi.where(),
-                           serverSelectionTimeoutMS=5000)
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+
         # Test the connection
         client.server_info()
         db = client[DATABASE_NAME]
