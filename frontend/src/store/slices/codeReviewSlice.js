@@ -3,12 +3,12 @@ import { processService } from '../../services/processService';
 
 export const runCodeReview = createAsyncThunk(
   'codeReview/runReview',
-  async ({files, model}) => {
+  async ({files, model, customPrompt, sessionId}) => {
     try {
       // Show the selected model in an alert
       window.alert(`Selected model: ${model}`);
       
-      const response = await processService.runCodeReview(files, model);
+      const response = await processService.runCodeReview(files, model, customPrompt, sessionId);
       if (!response || !response.reviews) {
         throw new Error('Invalid response format');
       }

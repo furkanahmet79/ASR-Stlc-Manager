@@ -28,7 +28,10 @@ class ReviewService:
         self.logger = logging.getLogger(__name__)
         self.logger.debug("ReviewService initialized")
 
-    async def run_code_review(self, files, model_key=None, custom_prompt=None):
+    def normalize_prompt(self, text):
+        return ' '.join(text.strip().split()).lower()
+
+    async def run_code_review(self, files, model_key=None, custom_prompt=None, session_id=None):
         try:
             self.logger.debug(f"Starting code review for {len(files)} files with model: {model_key}")
             
@@ -61,28 +64,19 @@ class ReviewService:
             # Prompt seçimi - yalnızca veritabanından
             used_prompt = None
             prompt_source = None
+            base_prompt = get_base_prompt("code_review")
             
             if custom_prompt:
                 used_prompt = custom_prompt
                 prompt_source = "custom_parameter"
                 self.logger.info("Using custom prompt provided by user in this request")
             else:
-                # Veritabanından özel prompt çek
-                db_base_prompt = get_base_prompt("code_review")
-                if db_base_prompt:
-                    used_prompt = db_base_prompt
+                if base_prompt:
+                    used_prompt = base_prompt
                     prompt_source = "base_db"
-                    self.logger.info("Using user-edited prompt")
+                    self.logger.info("Using base prompt from database")
                 else:
-                    # Veritabanından temel prompt çek
-                    db_base_prompt = get_base_prompt("code_review")
-                    if db_base_prompt:
-                        used_prompt = db_base_prompt
-                        prompt_source = "base_db"
-                        self.logger.info("Using base prompt from database")
-                    else:
-                        # Veritabanında prompt yoksa hata fırlat
-                        raise ValueError("No prompt found in database for code_review process. Please add a prompt to the database.")
+                    raise ValueError("No prompt found in database for code_review process. Please add a prompt to the database.")
             
             # Prompt'a kodu ekle
             review_prompt = used_prompt.format(code=combined_content)
@@ -107,26 +101,25 @@ class ReviewService:
                 
             file_names = [os.path.basename(path) for path in file_paths]
             files_header = "Files analyzed:\n" + "\n".join(file_names)
+
+            # edited_prompt True/False belirle
+            edited_prompt = False
+            if custom_prompt and base_prompt:
+                edited_prompt = (self.normalize_prompt(custom_prompt) != self.normalize_prompt(base_prompt))
+            elif custom_prompt and not base_prompt:
+                edited_prompt = True
             
-            # Session verilerini kaydet
+            # Session verilerini kaydet (yeni yapıya uygun)
             session_data = {
-            "process_type": "code_review",
-            "model_name": model_name,
-            "uploaded_files": [
-        {
-            "file_name": name,
-            "file_content": self.file_handler.read_file(path)
-        } for name, path in zip(file_names, file_paths)
-    ],
-    "used_prompt": review_prompt,
-    # Eğer custom prompt varsa edited_prompt olarak ekle
-    "edited_prompt": custom_prompt if custom_prompt else None
+                "session_id": session_id,
+                "output": {
+                    "files": files_header,
+                    "review": final_review
+                },
+                "edited_prompt": edited_prompt,
+                "used_prompt": used_prompt,
+                "used_model": model_name
             }
-            
-            # Prompt metni çok büyük olabileceği için sınırlı bir kısmını kaydet
-            session_data["prompt_text_sample"] = used_prompt[:200] + "..." if len(used_prompt) > 200 else used_prompt
-            
-            # Session verisini kaydet ve session_id'yi al
             save_session_data(session_data)
             
             # Cleanup temporary files
@@ -146,7 +139,7 @@ class ReviewService:
                 "prompt_info": {
                     "source": prompt_source
                 },
-                "session_id": session_data.get("session_id", "unknown")
+                "session_id": session_id or "unknown"
             }
 
         except Exception as e:

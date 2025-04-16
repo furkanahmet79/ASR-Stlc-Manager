@@ -11,15 +11,16 @@ review_service = ReviewService()
 async def process_code_review(
     files: List[UploadFile] = File(...),
     model: Optional[str] = Form(None),
-    custom_prompt: Optional[str] = Form(None)  # Yeni eklenen parametre
+    custom_prompt: Optional[str] = Form(None),
+    session_id: Optional[str] = Form(None)  # session_id parametresi eklendi
 ):
     try:
         if not files:
             raise HTTPException(status_code=400, detail="No files uploaded.")
         
-        logger.info(f"Code review requested with model: {model}")
-        # custom_prompt parametresini de geçiriyoruz
-        results = await review_service.run_code_review(files, model, custom_prompt)
+        logger.info(f"Code review requested with model: {model} ve session_id: {session_id}")
+        # session_id parametresini de geçiriyoruz
+        results = await review_service.run_code_review(files, model, custom_prompt, session_id)
         return results
     except Exception as e:
         logger.error(f"Code Review Error: {str(e)}")

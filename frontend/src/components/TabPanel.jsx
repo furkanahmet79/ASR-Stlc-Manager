@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { clsx } from 'clsx';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import FileUpload from './FileUpload';
@@ -41,90 +41,85 @@ export default function TabPanel({
   const [tempPrompt, setTempPrompt] = useState('');
   const [showHelp, setShowHelp] = useState(false);
 
+  // Aktif tab değiştiğinde veya ilk açılışta base prompt'u otomatik yükle
+  useEffect(() => {
+    if (
+      activeTab &&
+      activeTab !== 'files' &&
+      activeTab !== 'pipeline' &&
+      !processPrompts[activeTab]
+    ) {
+      // Base prompt'u backend'den çek
+      fetch(`http://localhost:8000/api/prompts/${activeTab}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.prompt) {
+            onPromptUpdate(activeTab, {
+              prompt_text: data.prompt,
+              process_type: activeTab,
+              isTemporary: false
+            });
+          }
+        })
+        .catch(err => {
+          console.error('Base prompt fetch error:', err);
+        });
+    }
+  }, [activeTab]);
+
   const handleProcessToggle = (processId) => {
     onProcessSelect(processId);
     setActiveTab(processId);
   };
 
   const handleEditPrompt = async (processId) => {
+    const currentPrompt = processPrompts[processId];
+    // Eğer kullanıcı daha önce bir prompt kaydettiyse onu göster
+    if (currentPrompt?.prompt_text) {
+      setEditingPrompt(processId);
+      setTempPrompt(currentPrompt.prompt_text);
+      return;
+    }
+    // Yoksa backend'den base prompt çek
     try {
-      // Eğer geçici bir prompt varsa, base prompt'u fetch et
-      const currentPrompt = processPrompts[processId];
-  
-      if (currentPrompt?.isTemporary) {
-        const response = await fetch(`http://localhost:8000/api/prompts/${processId}`);
-  
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || 'Base prompt fetch failed');
-        }
-  
-        const data = await response.json();
-        setEditingPrompt(processId);
-        setTempPrompt(data.prompt);
-        return;
-      }
-  
-      // Normal edit işlemi
       const response = await fetch(`http://localhost:8000/api/prompts/${processId}`);
-  
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || 'Base prompt fetch failed');
       }
-  
       const data = await response.json();
       setEditingPrompt(processId);
       setTempPrompt(data.prompt);
     } catch (error) {
-      console.error('Base prompt fetch error:', error);
       setEditingPrompt(processId);
       setTempPrompt(`Error: ${error.message}`);
     }
   };
   
-  const handleSavePrompt = async (processId) => {
-    try {
-      const response = await fetch(`http://localhost:8000/api/prompts/${processId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: tempPrompt }),
-      });
-  
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to save prompt');
-      }
-  
-      let responseData;
-      try {
-        responseData = await response.json();
-      } catch (parseError) {
-        console.error('Response parse error:', parseError);
-        throw new Error('Invalid response from server');
-      }
-  
-      // Prompt'u güncelle
-      onPromptUpdate(processId, {
-        prompt_text: tempPrompt,
-        process_type: processId,
-        isTemporary: false,
-      });
-  
-      setEditingPrompt(null);
-      alert('Prompt successfully saved');
-    } catch (error) {
-      console.error('Prompt save error:', error);
-      if (error instanceof TypeError) {
-        alert('Network error. Please check your connection.');
-      } else {
-        alert(`Error saving prompt: ${error.message}`);
-      }
-    }
+  const handleSavePrompt = (processId) => {
+    // Sadece frontend state'inde güncelle
+    onPromptUpdate(processId, {
+      prompt_text: tempPrompt,
+      process_type: processId,
+      isTemporary: true
+    });
+    setEditingPrompt(null);
+    alert('Prompt saved locally. This will be used only for this session.');
   };
   
+  const handleBackToBasePrompt = async (processId) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/prompts/${processId}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Base prompt fetch failed');
+      }
+      const data = await response.json();
+      setTempPrompt(data.prompt);
+    } catch (error) {
+      alert('Base prompt alınamadı: ' + error.message);
+    }
+  };
 
   const handleRun = (processId, files) => {
     // processId bilgisini çıktıya eklemek için
@@ -291,10 +286,8 @@ export default function TabPanel({
   const renderPromptSection = (processId) => {
     const process = processes.find(p => p.id === processId);
     const currentPrompt = processPrompts[processId];
-  
-    // Extract the prompt text from the prompt object
-    const promptText = currentPrompt?.prompt_text || currentPrompt?.content || process?.defaultPrompt || 'No prompt set';
-    
+    const promptText = currentPrompt?.prompt_text || currentPrompt?.content || process?.defaultPrompt || '';
+
     return (
       <div className="space-y-4">
         <h3 className="text-lg font-medium text-gray-900">Process Prompt</h3>
@@ -318,13 +311,19 @@ export default function TabPanel({
               >
                 Cancel
               </button>
+              <button
+                onClick={() => handleBackToBasePrompt(processId)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Back to Base Prompt
+              </button>
             </div>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-gray-600 whitespace-pre-wrap">
-                {promptText}
+                {promptText || "Prompt bulunamadı."}
               </p>
             </div>
             <button

@@ -9,11 +9,19 @@ import { useDispatch, useSelector } from 'react-redux';
 import { runCodeReview } from './store/slices/codeReviewSlice';
 import axios from 'axios';
 import TestScenarioGenerationForm from "./components/processes/TestScenarioGenerationForm";
+import { v4 as uuidv4 } from 'uuid';
 
 // Create a separate component for the app contents
 function AppContents() {
 	const dispatch = useDispatch();
 	const { status, reviews, error } = useSelector(state => state.codeReview);
+
+	// Session ID yönetimi - HER YENİLEMEDE YENİ OLUŞTUR
+	const [sessionId, setSessionId] = useState(() => {
+		const sid = uuidv4();
+		localStorage.setItem('session_id', sid);
+		return sid;
+	});
 
 	// Combined states from both App.jsx files
 	const [selectedProcesses, setSelectedProcesses] = useState(new Set());
@@ -324,17 +332,14 @@ function AppContents() {
 			let result;
 			if (processId === 'code-review') {
 				console.log('[App] Running code review with ai model', aiModels);
-				
-				// Get the selected AI model for code review
 				const selectedModel = aiModels[processId] || 'default';
 				console.log(`[App] Using AI model for code review: ${selectedModel}`);
-				
-				await dispatch(runCodeReview({files, model: selectedModel})).unwrap();
-				
+				// Custom prompt'u al
+				const customPrompt = processPrompts[processId]?.prompt_text || processPrompts[processId]?.content || null;
+				await dispatch(runCodeReview({files, model: selectedModel, customPrompt, sessionId})).unwrap();
 				if (error) {
 					throw new Error(error);
 				}
-				
 				setOutputs(prev => ({
 					...prev,
 					[processId]: {
@@ -343,7 +348,7 @@ function AppContents() {
 						processType: 'Code Review',
 						processId,
 						timestamp: new Date().toISOString(),
-						model: selectedModel  // Include the model used in the output
+						model: selectedModel
 					}
 				}));
 			} else if (processId === 'test-planning') {
@@ -354,7 +359,7 @@ function AppContents() {
 					formData.append('files', file);
 					console.log(`[App] Added file to FormData: ${file.name || fileInfo.name}`);
 				});
-	
+				formData.append('session_id', sessionId);
 				console.log('[App] Sending POST request to http://localhost:8000/api/processes/test-planning/run');
 				const response = await fetch('http://localhost:8000/api/processes/test-planning/run', {
 					method: 'POST',
@@ -384,7 +389,7 @@ function AppContents() {
 			}else if (processId === 'requirement-analysis') {
 				console.log('[App] Running requirement analysis');
 				try {
-						const result = await processService.runRequirementAnalysis(files, null);
+						const result = await processService.runRequirementAnalysis(files, null, sessionId);
 						console.log('[App] Backend response from requirement analysis:', result);
 						setOutputs(prev => ({
 								...prev,

@@ -27,7 +27,7 @@ export const processService = {
     }
   },
 
-  async runCodeReview(files, model = null) {
+  async runCodeReview(files, model = null, customPrompt = null, sessionId = null) {
     console.log('[ProcessService] Running code review with model:', model);
     
     const formData = new FormData();
@@ -38,6 +38,12 @@ export const processService = {
     
     if (model) {
       formData.append('model', model);
+    }
+    if (customPrompt) {
+      formData.append('custom_prompt', customPrompt);
+    }
+    if (sessionId) {
+      formData.append('session_id', sessionId);
     }
 
     try {
@@ -68,7 +74,7 @@ export const processService = {
   },
 
   // Yeni eklenen requirement analysis metodu
-  async runRequirementAnalysis(files, customPrompt = null) {
+  async runRequirementAnalysis(files, customPrompt = null, sessionId = null) {
     const formData = new FormData();
     files.forEach(file => {
       const actualFile = file.file || file; // Hem { file: FileObject } hem doğrudan File desteklenir
@@ -78,6 +84,10 @@ export const processService = {
   
     if (customPrompt) {
       formData.append('customPrompt', customPrompt);
+    }
+  
+    if (sessionId) {
+      formData.append('session_id', sessionId);
     }
   
     try {
