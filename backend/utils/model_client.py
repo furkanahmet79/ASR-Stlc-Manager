@@ -41,9 +41,9 @@ def get_llm_instance(temperature: float = 0.7):
         )
         
         # 3. Bağlantıyı test etme
-        logger.debug(f"LLM’e gönderilen test sorgusu: Merhaba, bu bir test sorgusudur.")
+        logger.debug(f"LLM'e gönderilen test sorgusu: Merhaba, bu bir test sorgusudur.")
         test_response = llm.invoke("Merhaba, bu bir test sorgusudur.")
-        logger.debug(f"LLM’den alınan yanıt: {test_response}")
+        logger.debug(f"LLM'den alınan yanıt: {test_response}")
         if test_response:
             logger.info("LLM bağlantısı başarılı.")
         else:
@@ -79,7 +79,6 @@ class LLMClient:
         "gemma2:2b": "gemma-2-2b-it",
         "gemma3:4b": "gemma-3-4b-it",
         "llama3.2:3b": "llama-3.2-3b-instruct",
-        "mistral:7b": "mistral-7b-instruct-v0.3",
         "qwen2.5:7b": "qwen2.5-7b-instruct-1m",
         "qwen2.5-coder:3b": "qwen2.5-coder-3b-instruct",
         "stable-code:3b": "stable-code-instruct-3b",
@@ -97,7 +96,7 @@ class LLMClient:
         self.logger.info(f"Selected model: {model_key} -> {model_id}")
         return model_id
 
-    async def generate_response(self, prompt, temperature=0.7, max_tokens=4096):
+    async def generate_response(self, prompt, temperature=0.7, max_tokens=4096, response_format=None):
         """LLM API çağrısı yapan temel metod"""
         payload = {
             "model": self.model_name,
@@ -105,6 +104,8 @@ class LLMClient:
             "temperature": temperature,
             "max_tokens": max_tokens
         }
+        if response_format:
+            payload["response_format"] = response_format
         try:
             self.logger.debug(f"Sending request to LLM API with model: {self.model_name}")
             response = requests.post(f"{self.api_url}/chat/completions", json=payload)

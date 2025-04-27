@@ -60,7 +60,7 @@ function useModelInfo(selectedModel) {
   return modelDescriptions[selectedModel] || [];
 }
 
-export default function CodeReviewForm({ process, onAIModelUpdate, aiModels, disabled }) {
+export default function TestPlanningForm({ process, onAIModelUpdate, aiModels, disabled }) {
   const [model, setModel] = useState(aiModels?.[process?.id] || 'llama3.2: 1B');
   const [modelInfo, setModelInfo] = useState([]);
 
@@ -86,7 +86,7 @@ export default function CodeReviewForm({ process, onAIModelUpdate, aiModels, dis
 
   const handleModelChange = (e) => {
     const selectedModel = e.target.value;
-    console.log(`[CodeReviewForm] Model changed to: ${selectedModel}`);
+    console.log(`[TestPlanningForm] Model changed to: ${selectedModel}`);
     setModel(selectedModel);
     setModelInfo(useModelInfo(selectedModel));
     
@@ -114,12 +114,12 @@ export default function CodeReviewForm({ process, onAIModelUpdate, aiModels, dis
         </div>
         
         <div className="mt-2 text-sm text-blue-600 font-semibold">
-          Currently selected model: {model || 'llama3.2: 1B'}
+          Şu an seçili model: {model || 'llama3.2: 1B'}
         </div>
 
         {modelInfo.length > 0 && (
           <div className="mt-4 text-sm text-gray-600">
-            <h4 className="font-medium">Model Information:</h4>
+            <h4 className="font-medium">Model Bilgisi:</h4>
             <ul className="list-disc pl-5">
               {modelInfo.map((info, index) => (
                 <li key={index}>{info}</li>
@@ -132,9 +132,9 @@ export default function CodeReviewForm({ process, onAIModelUpdate, aiModels, dis
   );
 }
 
-CodeReviewForm.propTypes = {
+TestPlanningForm.propTypes = {
   process: PropTypes.object.isRequired,
   onAIModelUpdate: PropTypes.func,
   aiModels: PropTypes.object,
   disabled: PropTypes.bool
-};
+}; 

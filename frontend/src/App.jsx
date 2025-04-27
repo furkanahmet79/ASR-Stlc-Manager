@@ -7,9 +7,12 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import { useDispatch, useSelector } from 'react-redux';
 import { runCodeReview } from './store/slices/codeReviewSlice';
+import { runRequirementAnalysis } from './store/slices/requirementAnalysisSlice';
 import axios from 'axios';
 import TestScenarioGenerationForm from "./components/processes/TestScenarioGenerationForm";
 import { v4 as uuidv4 } from 'uuid';
+import { runTestPlanning } from './store/slices/testPlanningSlice';
+import { runEnvironmentSetup } from './store/slices/environmentSetupSlice';
 
 // Create a separate component for the app contents
 function AppContents() {
@@ -319,6 +322,29 @@ function AppContents() {
 				}
 			}
 			
+			// --- CODE REVIEW KONTROLÜ ---
+			if (
+				(processId === 'requirement-analysis' || processId === 'test-planning') &&
+				files.length > 0
+			) {
+				const hasRequirementDoc = files.some(file => file.type === 'Requirement Document');
+				const hasSourceCode = files.some(file => file.type === 'Source Code');
+				if (!hasRequirementDoc || !hasSourceCode) {
+					window.alert('Bu süreç için hem Requirement Document hem de Source Code dosyası yüklemelisiniz.');
+					setPipelineStatus(prev => ({ ...prev, [processId]: 'idle' }));
+					return;
+				}
+			}
+			if (processId === 'code-review' && files.length > 0) {
+				const allRequirementDocs = files.every(file => file.type === 'Requirement Document');
+				if (allRequirementDocs) {
+					window.alert('Code review sadece Requirement Document ile çalıştırılamaz. Lütfen kod dosyası da ekleyin.');
+					setPipelineStatus(prev => ({ ...prev, [processId]: 'idle' }));
+					return;
+				}
+			}
+			// --- KONTROL SONU ---
+			
 			console.log(`[App] Processing with ${files.length} files`);
 			
 			// Windows pop-up ile kullanılan dosyaları göster
@@ -353,80 +379,39 @@ function AppContents() {
 				}));
 			} else if (processId === 'test-planning') {
 				console.log('[App] Running test planning');
-				const formData = new FormData();
-				files.forEach(fileInfo => {
-					const file = fileInfo.file || fileInfo;
-					formData.append('files', file);
-					console.log(`[App] Added file to FormData: ${file.name || fileInfo.name}`);
-				});
-				formData.append('session_id', sessionId);
-				console.log('[App] Sending POST request to http://localhost:8000/api/processes/test-planning/run');
-				const response = await fetch('http://localhost:8000/api/processes/test-planning/run', {
-					method: 'POST',
-					body: formData,
-				});
-	
-				console.log(`[App] Response status: ${response.status}`);
-				if (!response.ok) {
-					const errorText = await response.text();
-					console.error(`[App] HTTP error: ${response.status} - ${errorText}`);
-					throw new Error(`Backend error: ${response.status} - ${errorText}`);
-				}
-	
-				result = await response.json();
-				console.log(`[App] Backend response: ${JSON.stringify(result)}`);
-				setOutputs(prev => ({
-					...prev,
-					[processId]: {
-						content: result.error ? `Error: ${result.error}` : result.result,
-						status: result.error ? 'error' : 'completed',
-						processType: 'Test Planning',
-						processId: processId,
-						timestamp: new Date().toISOString()
-					}
-				}));
-				console.log('[App] Test planning completed, output set');
-			}else if (processId === 'requirement-analysis') {
+				const selectedModel = aiModels[processId] || 'default';
+				const customPrompt = processPrompts[processId]?.prompt_text || processPrompts[processId]?.content || null;
+				await dispatch(runTestPlanning({files, model: selectedModel, customPrompt, sessionId})).unwrap();
+				// OutputPanel zaten plans dizisini redux'tan okuyacak!
+			} else if (processId === 'requirement-analysis') {
 				console.log('[App] Running requirement analysis');
 				try {
-						const result = await processService.runRequirementAnalysis(files, null, sessionId);
-						console.log('[App] Backend response from requirement analysis:', result);
-						setOutputs(prev => ({
-								...prev,
-								[processId]: {
-										content: result, // raw_result string'i doğrudan content olarak
-										status: 'completed',
-										processType: 'Requirement Analysis',
-										processId: processId,
-										timestamp: new Date().toISOString()
-								}
-						}));
-						console.log('[App] Requirement analysis completed, output set');
+					const selectedModel = aiModels[processId] || 'llama3.2:3b';
+					const fileNames = files.map(file => file.name || file.file?.name || 'Unnamed File').join('\n');
+					window.alert(`Requirement Analysis şu model ile çalıştırılıyor: ${selectedModel}\n\nKullanılan dosyalar:\n${fileNames}`);
+					const customPrompt = processPrompts[processId]?.prompt_text || processPrompts[processId]?.content || null;
+					await dispatch(runRequirementAnalysis({files, model: selectedModel, customPrompt, sessionId})).unwrap();
+					console.log('[App] Requirement analysis completed, redux state güncellendi');
 				} catch (error) {
-						console.error('[App] Error in requirement analysis:', error);
-						setOutputs(prev => ({
-								...prev,
-								[processId]: {
-										content: `Hata: ${error.message}`,
-										status: 'error',
-										processType: 'Requirement Analysis',
-										processId: processId,
-										timestamp: new Date().toISOString()
-								}
-						}));
+					console.error('[App] Error in requirement analysis:', error);
+					setOutputs(prev => ({
+						...prev,
+						[processId]: {
+							content: `Hata: ${error.message}`,
+							status: 'error',
+							processType: 'Requirement Analysis',
+							processId: processId,
+							timestamp: new Date().toISOString(),
+							model: aiModels[processId] || 'llama3.2:3b'
+						}
+					}));
 				}
-		}else if (processId === 'environment-setup') {
-				setOutputs(prev => ({
-					...prev,
-					[processId]: {
-						content: `# Environment Setup Completed\n\n## Development Environment\n- Node.js v16.14.2\n- React v18.2.0\n- PostgreSQL v14.3\n\n## Test Environment\n- Jest v28.1.0\n- Cypress v10.3.0\n\n## Configuration\n\`\`\`\nAPP_PORT=3000\nDB_CONNECTION=postgresql://user:password@localhost:5432/testdb\nJWT_SECRET=test_secret_key\n\`\`\``,
-						status: 'completed',
-						processType: 'Environment Setup',
-						processId: processId,
-						timestamp: new Date().toISOString()
-					}
-				}));
-				console.log('[App] Environment setup completed, output set');
+			} else if (processId === 'environment-setup') {
+				console.log('[App] Running environment setup');
+				const selectedModel = aiModels[processId] || 'default';
+				const customPrompt = processPrompts[processId]?.prompt_text || processPrompts[processId]?.content || null;
+				await dispatch(runEnvironmentSetup({files, model: selectedModel, customPrompt, sessionId})).unwrap();
+				// OutputPanel zaten setups dizisini redux'tan okuyacak!
 			} else if (processId === 'test-scenario-generation') {
 				console.log('[App] Running test scenario generation');
 				const config = {

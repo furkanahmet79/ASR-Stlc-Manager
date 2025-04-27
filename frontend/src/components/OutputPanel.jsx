@@ -3,7 +3,10 @@ import ReactMarkdown from 'react-markdown';
 import { useSelector } from 'react-redux';
 
 export default function OutputPanel({ output, activeTab, processes }) {
-  const { status, reviews, error } = useSelector(state => state.codeReview);
+  const { status: codeReviewStatus, reviews, error: codeReviewError } = useSelector(state => state.codeReview || {});
+  const { status: reqStatus, result: reqResult, error: reqError } = useSelector(state => state.requirementAnalysis || {});
+  const { status: testPlanningStatus, plans, error: testPlanningError } = useSelector(state => state.testPlanning || {});
+  const { status: envSetupStatus, setups, error: envSetupError } = useSelector(state => state.environmentSetup || {});
 
   const processId = activeTab !== 'pipeline' && activeTab !== 'files' ? activeTab : null;
   const selectedProcess = processes?.find(p => p.id === processId);
@@ -50,12 +53,12 @@ export default function OutputPanel({ output, activeTab, processes }) {
   const displayOutput = processOutput || (processId && !output ? getSampleOutput() : output);
 
   const renderCodeReviewOutput = () => {
-    if (status === 'loading') {
+    if (codeReviewStatus === 'loading') {
       return <div>Loading code review results...</div>;
     }
     
-    if (error) {
-      return <div className="text-red-600">Error: {error}</div>;
+    if (codeReviewError) {
+      return <div className="text-red-600">Error: {codeReviewError}</div>;
     }
     
     if (reviews.length === 0) {
@@ -74,18 +77,15 @@ export default function OutputPanel({ output, activeTab, processes }) {
   };
 
   const renderContent = () => {
-    // Create a local copy that we can modify
     let currentOutput = { ...getSampleOutput() };
 
     if (activeTab === 'code-review') {
-      if (status === 'loading') {
+      if (codeReviewStatus === 'loading') {
         return <div>Loading code review results...</div>;
       }
-      
-      if (error) {
-        return <div className="text-red-600">Error: {error}</div>;
+      if (codeReviewError) {
+        return <div className="text-red-600">Error: {codeReviewError}</div>;
       }
-
       if (reviews && reviews.length > 0) {
         const reviewContent = reviews.map(review => review).join('\n\n');
         currentOutput = {
@@ -93,6 +93,163 @@ export default function OutputPanel({ output, activeTab, processes }) {
           status: 'completed',
           timestamp: new Date().toISOString(),
           processType: 'Code Review'
+        };
+      }
+    }
+
+    if (activeTab === 'requirement-analysis') {
+      if (reqStatus === 'loading') {
+        return <div>Loading requirement analysis results...</div>;
+      }
+      if (reqError) {
+        return <div className="text-red-600">Error: {reqError}</div>;
+      }
+      if (reqResult && Array.isArray(reqResult.analysis) && reqResult.analysis.length > 0) {
+        const analysisContent = reqResult.analysis.map(item => `## Files Analyzed\n${item.files}\n\n## Analysis\n${item.result}`).join('\n\n');
+        return (
+          <div className="space-y-4">
+            <section>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-medium">Process Results</h3>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-sm">
+                <div className="prose prose-sm max-w-none text-gray-600">
+                  <ReactMarkdown>{analysisContent}</ReactMarkdown>
+                </div>
+              </div>
+            </section>
+            <section>
+              <h3 className="text-lg font-medium mb-3">Execution Details</h3>
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-sm">
+                <div className="text-gray-600">
+                  <p><strong>Status:</strong> completed</p>
+                  <p><strong>Process:</strong> Requirement Analysis</p>
+                  <p><strong>Last Updated:</strong> {new Date().toLocaleString()}</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        );
+      }
+      // Sample göster
+      return (
+        <div className="space-y-4">
+          <section>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-medium">Process Results</h3>
+              <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                Sample
+              </span>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="prose prose-sm max-w-none text-gray-600">
+                <ReactMarkdown>{getSampleOutput().content}</ReactMarkdown>
+              </div>
+            </div>
+          </section>
+          <section>
+            <h3 className="text-lg font-medium mb-3">Execution Details</h3>
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="text-gray-600">
+                <p><strong>Status:</strong> Not Run</p>
+                <p><strong>Process:</strong> Requirement Analysis</p>
+                <p><strong>Last Updated:</strong> {new Date().toLocaleString()}</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    if (activeTab === 'test-planning') {
+      if (testPlanningStatus === 'loading') {
+        return <div>Loading test planning results...</div>;
+      }
+      if (testPlanningError) {
+        return <div className="text-red-600">Error: {testPlanningError}</div>;
+      }
+      if (plans && plans.length > 0 && typeof plans[0] === 'object' && plans[0] !== null && 'files' in plans[0] && 'plan' in plans[0]) {
+        const filesMarkdown = plans[0].files;
+        const planData = plans[0].plan;
+
+        return (
+          <div className="space-y-4">
+            <div className="prose prose-sm max-w-none text-gray-600">
+              <ReactMarkdown>{filesMarkdown}</ReactMarkdown>
+            </div>
+            <div className="bg-gray-100 rounded p-4 font-mono text-xs overflow-auto">
+              <pre className="whitespace-pre-wrap break-words">
+                {JSON.stringify(planData, null, 2)}
+              </pre>
+            </div>
+          </div>
+        );
+      } else if (plans && plans.length > 0) {
+        console.warn("Beklenmeyen plans[0] yapısı (JSON gösterimi bekleniyor):", plans[0]);
+        return (
+          <div className="bg-gray-100 rounded p-4 font-mono text-xs overflow-auto">
+            <pre className="whitespace-pre-wrap break-words">
+              {JSON.stringify(plans[0], null, 2)}
+            </pre>
+          </div>
+        );
+      }
+      // Sample göster
+      return (
+        <div className="space-y-4">
+          <section>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-medium">Process Results</h3>
+              <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                Sample
+              </span>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="prose prose-sm max-w-none text-gray-600">
+                <ReactMarkdown>{getSampleOutput().content}</ReactMarkdown>
+              </div>
+            </div>
+          </section>
+          <section>
+            <h3 className="text-lg font-medium mb-3">Execution Details</h3>
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="text-gray-600">
+                <p><strong>Status:</strong> Not Run</p>
+                <p><strong>Process:</strong> Test Planning</p>
+                <p><strong>Last Updated:</strong> {new Date().toLocaleString()}</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    if (activeTab === 'environment-setup') {
+      if (envSetupStatus === 'loading') {
+        return <div> Loading Environment setup results...</div>;
+      }
+      if (envSetupError) {
+        return <div className="text-red-600">Hata: {envSetupError}</div>;
+      }
+      if (setups && setups.length > 0) {
+        // JSON içeriğini ayıkla
+        const setupContent = setups.map(setup => setup).join('\n\n');
+        // JSON stringini tespit et
+        const jsonMatch = setupContent.match(/\{[\s\S]*\}/);
+        let prettyJson = null;
+        if (jsonMatch) {
+          try {
+            prettyJson = JSON.stringify(JSON.parse(jsonMatch[0]), null, 2);
+          } catch (e) {
+            prettyJson = jsonMatch[0];
+          }
+        }
+        currentOutput = {
+          content: setupContent,
+          prettyJson,
+          status: 'completed',
+          timestamp: new Date().toISOString(),
+          processType: 'Environment Setup'
         };
       }
     }
@@ -125,7 +282,13 @@ export default function OutputPanel({ output, activeTab, processes }) {
           </div>
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-sm">
             <div className="prose prose-sm max-w-none text-gray-600">
-              <ReactMarkdown>{content}</ReactMarkdown>
+              {/* Önce açıklama kısmı, sonra kod bloğu */}
+              <ReactMarkdown>{content.replace(/\{[\s\S]*\}/, '').trim()}</ReactMarkdown>
+              {currentOutput.prettyJson && (
+                <div className="bg-gray-100 rounded p-4 font-mono text-xs overflow-auto mt-4">
+                  <pre className="whitespace-pre-wrap break-words">{currentOutput.prettyJson}</pre>
+                </div>
+              )}
             </div>
           </div>
         </section>

@@ -40,6 +40,7 @@ export const processService = {
       formData.append('model', model);
     }
     if (customPrompt) {
+      console.log('processService.js - custom_prompt gönderiliyor:', customPrompt);
       formData.append('custom_prompt', customPrompt);
     }
     if (sessionId) {
@@ -74,18 +75,21 @@ export const processService = {
   },
 
   // Yeni eklenen requirement analysis metodu
-  async runRequirementAnalysis(files, customPrompt = null, sessionId = null) {
+  async runRequirementAnalysis(files, model = null, customPrompt = null, sessionId = null) {
     const formData = new FormData();
     files.forEach(file => {
-      const actualFile = file.file || file; // Hem { file: FileObject } hem doğrudan File desteklenir
-      console.log("Eklenen dosya:", actualFile.name);
+      const actualFile = file.file || file;
       formData.append('files', actualFile);
     });
-  
-    if (customPrompt) {
-      formData.append('customPrompt', customPrompt);
+    // Dosya tiplerini ayrı bir array olarak ekle
+    const types = files.map(fileInfo => fileInfo.type || '');
+    types.forEach(type => formData.append('types', type));
+    if (model) {
+      formData.append('model', model);
     }
-  
+    if (customPrompt) {
+      formData.append('custom_prompt', customPrompt);
+    }
     if (sessionId) {
       formData.append('session_id', sessionId);
     }
@@ -93,7 +97,7 @@ export const processService = {
     try {
       console.log("İstek gönderiliyor: Gereksinim analizi süreci için");
       const response = await axios.post(
-        `${API_BASE_URL}/processes/requirement_analysis/run`,
+        `${API_BASE_URL}/requirement_analysis/run`,
         formData,
         {
           headers: {
@@ -172,6 +176,77 @@ export const processService = {
         };
       }
       throw new Error(error.response?.data?.detail || 'Failed to fetch test type details');
+    }
+  },
+
+  async runTestPlanning(files, model = null, customPrompt = null, sessionId = null) {
+    const formData = new FormData();
+    files.forEach(fileInfo => {
+      const file = fileInfo.file || fileInfo;
+      formData.append('files', file);
+    });
+    if (model) formData.append('model', model);
+    if (customPrompt) formData.append('custom_prompt', customPrompt);
+    if (sessionId) formData.append('session_id', sessionId);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/processes/test-planning/run', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error(`Backend error: ${response.status}`);
+      const data = await response.json();
+      return {
+        plans: data.plans.map(plan => `## Files Analyzed\n${plan.files}\n\n## Test Plan\n${plan.plan}`),
+        metadata: {
+          timestamp: new Date().toISOString(),
+          fileCount: files.length
+        }
+      };
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async runEnvironmentSetup(files, model = null, customPrompt = null, sessionId = null) {
+    console.log("runEnvironmentSetup çağrıldı. Dosyalar ve tipleri:");
+    files.forEach((fileInfo, idx) => {
+      const file = fileInfo.file || fileInfo;
+      const type = fileInfo.type || '';
+      console.log(`  [${idx}] Dosya adı: ${file.name || file.file?.name}, Tip: \"${type}\"`);
+    });
+
+    const formData = new FormData();
+    files.forEach(fileInfo => {
+      const file = fileInfo.file || fileInfo;
+      formData.append('files', file);
+    });
+    // Dosya tiplerini ayrı bir array olarak ekle
+    const types = files.map(fileInfo => fileInfo.type || '');
+    console.log("Gönderilecek types array'i:", types);
+    types.forEach(type => formData.append('types', type));
+    if (model) formData.append('model', model);
+    if (customPrompt) formData.append('custom_prompt', customPrompt);
+    if (sessionId) formData.append('session_id', sessionId);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/processes/environment-setup/run', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error(`Backend error: ${response.status}`);
+      const data = await response.json();
+      return {
+        setups: data.setups.map(setup => `## Files Analyzed\n${setup.files}\n\n## Environment Setup\n${setup.setup}`),
+        metadata: {
+          timestamp: new Date().toISOString(),
+          fileCount: files.length
+        }
+      };
+    } catch (error) {
+      throw error;
     }
   }
 };

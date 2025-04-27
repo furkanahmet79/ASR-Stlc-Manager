@@ -9,6 +9,9 @@ import TestScenarioOptimizationForm from './processes/TestScenarioOptimizationFo
 import TestCaseGenerationForm from './processes/TestCaseGenerationForm';
 import TestCaseOptimizationForm from './processes/TestCaseOptimizationForm';
 import CodeReviewForm from './processes/CodeReviewForm';
+import RequirementAnalysisForm from './processes/RequirementAnalysisForm';
+import TestPlanningForm from './processes/TestPlanningForm';
+import EnvironmentSetupForm from './processes/EnvironmentSetupForm';
 
 export default function TabPanel({
   processes,
@@ -49,21 +52,40 @@ export default function TabPanel({
       activeTab !== 'pipeline' &&
       !processPrompts[activeTab]
     ) {
-      // Base prompt'u backend'den çek
-      fetch(`http://localhost:8000/api/prompts/${activeTab}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.prompt) {
-            onPromptUpdate(activeTab, {
-              prompt_text: data.prompt,
-              process_type: activeTab,
-              isTemporary: false
-            });
-          }
-        })
-        .catch(err => {
-          console.error('Base prompt fetch error:', err);
-        });
+      // Code review için yeni endpoint ve veri yapısı
+      if (activeTab === 'code-review') {
+        fetch('http://localhost:8000/api/prompts/code-review')
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.prompt_text) {
+              onPromptUpdate(activeTab, {
+                prompt_text: data.prompt_text,
+                process_type: activeTab,
+                isTemporary: false
+              });
+            }
+          })
+          .catch(err => {
+            console.error('Base prompt fetch error:', err);
+          });
+      } else {
+        // Diğer süreçler için eski mantık
+        fetch(`http://localhost:8000/api/prompts/${activeTab}`)
+          .then(res => res.json())
+          .then(data => {
+            // prompt_text varsa onu kullan, yoksa prompt'u kullan
+            if (data && (data.prompt_text || data.prompt)) {
+              onPromptUpdate(activeTab, {
+                prompt_text: data.prompt_text || data.prompt,
+                process_type: activeTab,
+                isTemporary: false
+              });
+            }
+          })
+          .catch(err => {
+            console.error('Base prompt fetch error:', err);
+          });
+      }
     }
   }, [activeTab]);
 
@@ -80,7 +102,34 @@ export default function TabPanel({
       setTempPrompt(currentPrompt.prompt_text);
       return;
     }
-    // Yoksa backend'den base prompt çek
+    // Code review, requirement-analysis, test-planning veya environment-setup için yeni endpoint ve veri yapısı
+    if (processId === 'code-review' || processId === 'requirement-analysis' || processId === 'test-planning' || processId === 'environment-setup') {
+      try {
+        let endpoint;
+        if (processId === 'code-review') {
+          endpoint = 'http://localhost:8000/api/prompts/code-review';
+        } else if (processId === 'requirement-analysis') {
+          endpoint = 'http://localhost:8000/api/prompts/requirement-analysis';
+        } else if (processId === 'test-planning') {
+          endpoint = 'http://localhost:8000/api/prompts/test-planning';
+        } else if (processId === 'environment-setup') {
+          endpoint = 'http://localhost:8000/api/prompts/environment-setup';
+        }
+        const response = await fetch(endpoint);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Base prompt fetch failed');
+        }
+        const data = await response.json();
+        setEditingPrompt(processId);
+        setTempPrompt(data.prompt_text);
+      } catch (error) {
+        setEditingPrompt(processId);
+        setTempPrompt(`Error: ${error.message}`);
+      }
+      return;
+    }
+    // Diğer süreçler için eski mantık
     try {
       const response = await fetch(`http://localhost:8000/api/prompts/${processId}`);
       if (!response.ok) {
@@ -89,7 +138,7 @@ export default function TabPanel({
       }
       const data = await response.json();
       setEditingPrompt(processId);
-      setTempPrompt(data.prompt);
+      setTempPrompt(data.prompt_text || data.prompt);
     } catch (error) {
       setEditingPrompt(processId);
       setTempPrompt(`Error: ${error.message}`);
@@ -97,7 +146,6 @@ export default function TabPanel({
   };
   
   const handleSavePrompt = (processId) => {
-    // Sadece frontend state'inde güncelle
     onPromptUpdate(processId, {
       prompt_text: tempPrompt,
       process_type: processId,
@@ -108,6 +156,32 @@ export default function TabPanel({
   };
   
   const handleBackToBasePrompt = async (processId) => {
+    // Code review, requirement-analysis, test-planning veya environment-setup için yeni endpoint ve veri yapısı
+    if (processId === 'code-review' || processId === 'requirement-analysis' || processId === 'test-planning' || processId === 'environment-setup') {
+      try {
+        let endpoint;
+        if (processId === 'code-review') {
+          endpoint = 'http://localhost:8000/api/prompts/code-review';
+        } else if (processId === 'requirement-analysis') {
+          endpoint = 'http://localhost:8000/api/prompts/requirement-analysis';
+        } else if (processId === 'test-planning') {
+          endpoint = 'http://localhost:8000/api/prompts/test-planning';
+        } else if (processId === 'environment-setup') {
+          endpoint = 'http://localhost:8000/api/prompts/environment-setup';
+        }
+        const response = await fetch(endpoint);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Base prompt fetch failed');
+        }
+        const data = await response.json();
+        setTempPrompt(data.prompt_text);
+      } catch (error) {
+        alert('Base prompt alınamadı: ' + error.message);
+      }
+      return;
+    }
+    // Diğer süreçler için eski mantık
     try {
       const response = await fetch(`http://localhost:8000/api/prompts/${processId}`);
       if (!response.ok) {
@@ -137,10 +211,13 @@ export default function TabPanel({
 
   const ProcessFormComponents = {
     'code-review': CodeReviewForm,
+    'requirement-analysis': RequirementAnalysisForm,
     'test-scenario-generation': TestScenarioGenerationForm,
     'test-scenario-optimization': TestScenarioOptimizationForm,
     'test-case-generation': TestCaseGenerationForm,
-    'test-case-optimization': TestCaseOptimizationForm
+    'test-case-optimization': TestCaseOptimizationForm,
+    'test-planning': TestPlanningForm,
+    'environment-setup': EnvironmentSetupForm,
   };
 
   const renderHelpContent = () => (
@@ -172,7 +249,7 @@ export default function TabPanel({
   const renderProcessContent = (processId) => {
     const process = processes.find(p => p.id === processId);
     const FormComponent = ProcessFormComponents[processId];
-    
+    const isDisabled = pipelineStatus[processId] === 'running';
     return (
       <div className="space-y-6">
         {/* Process Description */}
@@ -239,6 +316,7 @@ export default function TabPanel({
                         onFileProcessMapping(file.id, updatedProcesses);
                       }}
                       className="h-4 w-4 text-indigo-600 rounded border-gray-300"
+                      disabled={isDisabled}
                     />
                     <div className="ml-3">
                       <p className="text-sm font-medium text-gray-700">{file.name}</p>
@@ -260,6 +338,7 @@ export default function TabPanel({
                 process={process}
                 onAIModelUpdate={onAIModelUpdate}
                 aiModels={aiModels}
+                disabled={isDisabled}
                 onGeneratePrompt={async (formData) => {
                   try {
                     const response = await onGeneratePrompt(processId, formData);
@@ -287,6 +366,7 @@ export default function TabPanel({
     const process = processes.find(p => p.id === processId);
     const currentPrompt = processPrompts[processId];
     const promptText = currentPrompt?.prompt_text || currentPrompt?.content || process?.defaultPrompt || '';
+    const isDisabled = pipelineStatus[processId] === 'running';
 
     return (
       <div className="space-y-4">
@@ -297,23 +377,31 @@ export default function TabPanel({
               value={tempPrompt}
               onChange={setTempPrompt}
               placeholder={`Customize prompt for ${process?.name}...`}
+              disabled={isDisabled}
+              className={isDisabled ? 'opacity-50 pointer-events-none' : ''}
             />
             <div className="flex space-x-2">
               <button
                 onClick={() => handleSavePrompt(processId)}
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                disabled={isDisabled}
+                style={isDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
               >
                 Save
               </button>
               <button
                 onClick={() => setEditingPrompt(null)}
                 className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                disabled={isDisabled}
+                style={isDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleBackToBasePrompt(processId)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                disabled={isDisabled}
+                style={isDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
               >
                 Back to Base Prompt
               </button>
@@ -329,6 +417,8 @@ export default function TabPanel({
             <button
               onClick={() => handleEditPrompt(processId)}
               className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+              disabled={isDisabled}
+              style={isDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
             >
               Edit
             </button>
@@ -362,49 +452,73 @@ export default function TabPanel({
 
         {/* Tabs Navigation */}
         <div className="flex space-x-1 overflow-x-auto px-4">
-          {tabs.map((tab) => (
-            <div
-              key={tab.id}
-              className={clsx(
-                'relative group',
-                activeTab === tab.id && 'bg-indigo-50 rounded-t-lg'
-              )}
-            >
-              <div className="flex items-center px-3 py-2">
-                {tab.id !== 'pipeline' && tab.id !== 'files' && (
-                  <input
-                    type="checkbox"
-                    checked={selectedProcesses.has(tab.id)}
-                    onChange={() => handleProcessToggle(tab.id)}
-                    className={clsx(
-                      "h-4 w-4 rounded mr-2",
-                      processOrigins[tab.id] === 'auto' ? 'text-yellow-500 border-yellow-500' : 'text-indigo-600 border-gray-300'
-                    )}
-                  />
+          {tabs.map((tab) => {
+            const isDisabled = pipelineStatus[tab.id] === 'running';
+            // Herhangi bir process çalışıyorsa ve aktif tab o değilse, tab geçişini engelle
+            const anyProcessRunning = Object.values(pipelineStatus).includes('running');
+            const isCurrentTabRunning = pipelineStatus[activeTab] === 'running';
+            return (
+              <div
+                key={tab.id}
+                className={clsx(
+                  'relative group',
+                  activeTab === tab.id && 'bg-indigo-50 rounded-t-lg'
                 )}
-                <button
-                  onClick={() => setActiveTab(tab.id)}
-                  className={clsx(
-                    'text-sm font-medium whitespace-nowrap transition-colors',
-                    activeTab === tab.id
-                      ? 'text-indigo-700'
-                      : 'text-gray-500 hover:text-gray-700'
+              >
+                <div className="flex items-center px-3 py-2">
+                  {tab.id !== 'pipeline' && tab.id !== 'files' && (
+                    <input
+                      type="checkbox"
+                      checked={selectedProcesses.has(tab.id)}
+                      onChange={() => {
+                        // Eğer herhangi bir process çalışıyorsa ve aktif tab o değilse, geçişe izin verme
+                        if (anyProcessRunning && tab.id !== activeTab && isCurrentTabRunning) {
+                          alert('Bir süreç çalışırken başka bir taba geçemezsiniz.');
+                          return;
+                        }
+                        handleProcessToggle(tab.id);
+                      }}
+                      className={clsx(
+                        "h-4 w-4 rounded mr-2",
+                        processOrigins[tab.id] === 'auto' ? 'text-yellow-500 border-yellow-500' : 'text-indigo-600 border-gray-300'
+                      )}
+                      disabled={isDisabled && activeTab !== tab.id}
+                    />
                   )}
-                >
-                  {tab.name}
-                </button>
-                {/* Auto etiketi - yeni eklendi */}
-                {processOrigins[tab.id] === 'auto' && (
-                  <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                    Auto
-                  </span>
+                  <button
+                    onClick={() => {
+                      // Eğer herhangi bir process çalışıyorsa ve aktif tab o değilse, geçişe izin verme
+                      if (anyProcessRunning && tab.id !== activeTab && isCurrentTabRunning) {
+                        alert('Bir süreç çalışırken başka bir taba geçemezsiniz.');
+                        return;
+                      }
+                      setActiveTab(tab.id);
+                    }}
+                    className={clsx(
+                      'text-sm font-medium whitespace-nowrap transition-colors',
+                      activeTab === tab.id
+                        ? 'text-indigo-700'
+                        : 'text-gray-500 hover:text-gray-700',
+                      // Sadece aktif olmayan tablar için opacity-50 uygula
+                      isDisabled && activeTab !== tab.id ? 'opacity-50 cursor-not-allowed' : ''
+                    )}
+                    disabled={isDisabled && activeTab !== tab.id}
+                  >
+                    {tab.name}
+                  </button>
+                  {/* Auto etiketi - yeni eklendi */}
+                  {processOrigins[tab.id] === 'auto' && (
+                    <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                      Auto
+                    </span>
+                  )}
+                </div>
+                {activeTab === tab.id && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" />
                 )}
               </div>
-              {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
