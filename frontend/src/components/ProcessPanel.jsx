@@ -3,7 +3,6 @@ import { clsx } from 'clsx';
 import FileUpload from './FileUpload';
 import PromptEditor from './PromptEditor';
 import TestScenarioGenerationForm from './processes/TestScenarioGenerationForm';
-import TestScenarioOptimizationForm from './processes/TestScenarioOptimizationForm';
 import TestCaseGenerationForm from './processes/TestCaseGenerationForm';
 import TestCaseOptimizationForm from './processes/TestCaseOptimizationForm';
 import CodeReviewForm from './processes/CodeReviewForm';
@@ -20,7 +19,6 @@ const tabs = [
 const ProcessFormComponents = {
   'code-review': CodeReviewForm,
   'test-scenario-generation': TestScenarioGenerationForm,
-  'test-scenario-optimization': TestScenarioOptimizationForm,
   'test-case-generation': TestCaseGenerationForm,
   'test-case-optimization': TestCaseOptimizationForm,
 };

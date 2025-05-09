@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 const FILE_TYPES = [
   'Requirement Document',
   'Source Code',
+  'UML',
 ];
 
 export default function FileUpload({ 

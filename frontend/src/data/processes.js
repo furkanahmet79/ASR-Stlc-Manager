@@ -19,9 +19,12 @@ export const processes = [
     id: 'requirement-analysis',
     name: 'Requirement Analysis',
     details: [
-      'Review and analyze project requirements and specifications',
-      'Identify testable requirements and acceptance criteria',
-      'Create requirement traceability matrix'
+      'Reviews and analyzes project requirements and specifications in depth to ensure clarity and completeness.',
+      'Identifies testable requirements, acceptance criteria, and potential ambiguities or inconsistencies.',
+      'Highlights missing, conflicting, or unclear requirements and provides actionable feedback.',
+      'Ensures alignment between business goals, user needs, and technical specifications.',
+      'Facilitates communication between stakeholders, developers, and testers for shared understanding.',
+      'Supports iterative refinement of requirements throughout the project lifecycle.'
     ],
     inputs: ['Requirement Document', 'Technical Design Document'],
     output: 'Requirements Analysis Report'
@@ -30,9 +33,13 @@ export const processes = [
     id: 'test-planning',
     name: 'Test Planning',
     details: [
-      'Develop comprehensive test strategy and plan',
-      'Define test objectives, scope, and approach',
-      'Estimate resources and create test schedule'
+      'Develops a comprehensive test strategy and plan tailored to the project scope and objectives.',
+      'Defines test objectives, scope, approach, and deliverables in detail.',
+      'Estimates required resources, timelines, and creates a detailed test schedule.',
+      'Identifies risks, dependencies, and mitigation strategies for the testing process.',
+      'Specifies entry and exit criteria, test environment needs, and tool requirements.',
+      'Coordinates with stakeholders to ensure test plan alignment with project goals.',
+      'Establishes communication and reporting protocols for test progress and issues.'
     ],
     inputs: ['Requirements Analysis Report', 'Code Review Report'],
     output: 'Test Plan'
@@ -41,9 +48,13 @@ export const processes = [
     id: 'environment-setup',
     name: 'Environment Setup',
     details: [
-      'Configure test environment and tools',
-      'Set up test data and dependencies',
-      'Validate environment readiness'
+      'Identifies the required programming language, framework, and operating system for the project (e.g., Python >=3.9, Flask, Ubuntu 20.04).',
+      'Lists all necessary dependencies (such as Flask, requests, gunicorn) and their versions, and provides installation instructions.',
+      'Specifies database requirements and additional tools needed (e.g., pip, virtualenv).',
+      'Provides step-by-step setup instructions and highlights important considerations for the environment.',
+      'Offers guidance on common installation issues and troubleshooting tips.',
+      'Recommends best practices for configuring and optimizing the development and deployment environment.',
+      'Encourages removal of unnecessary dependencies and tools to ensure a clean and secure setup.'
     ],
     inputs: ['Test Scripts', 'Technical Design Document'],
     output: 'Environment Setup Report'
@@ -109,17 +120,6 @@ export const processes = [
       'Requirements Document'
     ],
     defaultPrompt: 'Generate test scenarios considering the provided input and selected test type.'
-  },
-  {
-    id: 'test-scenario-optimization',
-    name: 'Test Scenario Optimization',
-    details: [
-      'Analyze and optimize test scenarios for efficiency',
-      'Remove redundant scenarios and identify gaps',
-      'Prioritize scenarios based on risk and importance'
-    ],
-    inputs: ['Test Scenarios'],
-    output: 'Optimized Test Scenarios'
   },
   {
     id: 'test-case-generation',

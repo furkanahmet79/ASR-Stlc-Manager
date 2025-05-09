@@ -23,6 +23,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-dropzone": "^14.2.3",
+    "react-gantt-chart": "^0.3.0-rc.11",
     "react-hot-toast": "^2.5.2",
     "react-markdown": "^8.0.7",
     "react-redux": "^9.2.0",

@@ -99,14 +99,14 @@ export default function RequirementAnalysisForm({ process, onAIModelUpdate, aiMo
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             disabled={disabled}
           >
-            <option value="">Default model: llama3.2:3b</option>
+            <option value="">Default model: llama3.2: 1B</option>
             {models.map(m => (
               <option key={m} value={m}>{m}</option>
             ))}
           </select>
         </div>
         <div className="mt-2 text-sm text-blue-600 font-semibold">
-          Currently selected model: {model || 'llama3.2:3b'}
+          Currently selected model: {model || 'llama3.2: 1B'}
         </div>
         {modelInfo.length > 0 && (
           <div className="mt-4 text-sm text-gray-600">

@@ -5,7 +5,6 @@ import FileUpload from './FileUpload';
 import PromptEditor from './PromptEditor';
 import OutputPanel from './OutputPanel';
 import TestScenarioGenerationForm from './processes/TestScenarioGenerationForm';
-import TestScenarioOptimizationForm from './processes/TestScenarioOptimizationForm';
 import TestCaseGenerationForm from './processes/TestCaseGenerationForm';
 import TestCaseOptimizationForm from './processes/TestCaseOptimizationForm';
 import CodeReviewForm from './processes/CodeReviewForm';
@@ -23,7 +22,9 @@ export default function TabPanel({
   processFiles,
   onFileUpload,
   onAIModelUpdate,
+  onOutputFormatUpdate,
   aiModels,
+  outputFormats,
   processPrompts,
   onPromptUpdate,
   pipelineStatus,
@@ -213,7 +214,6 @@ export default function TabPanel({
     'code-review': CodeReviewForm,
     'requirement-analysis': RequirementAnalysisForm,
     'test-scenario-generation': TestScenarioGenerationForm,
-    'test-scenario-optimization': TestScenarioOptimizationForm,
     'test-case-generation': TestCaseGenerationForm,
     'test-case-optimization': TestCaseOptimizationForm,
     'test-planning': TestPlanningForm,
@@ -310,6 +310,34 @@ export default function TabPanel({
                       checked={fileProcessMappings[file.id]?.includes(processId) || false}
                       onChange={() => {
                         const currentProcesses = fileProcessMappings[file.id] || [];
+                        // Eğer dosya henüz seçili değilse ve seçilmeye çalışılıyorsa
+                        if (!currentProcesses.includes(processId)) {
+                          // Seçilmeye çalışılan dosyanın türünü kontrol et
+                          const fileType = file.type;
+                          // Aktif süreç için seçilmiş olan diğer dosyaları bul
+                          const selectedFiles = managedFiles.filter(f => 
+                            fileProcessMappings[f.id]?.includes(processId)
+                          );
+                          
+                          // UML veya Source Code kısıtlaması kontrol edilecek
+                          if (fileType === 'UML') {
+                            // Eğer zaten bir Source Code seçilmişse
+                            const hasSourceCode = selectedFiles.some(f => f.type === 'Source Code');
+                            if (hasSourceCode) {
+                              window.alert('Bu süreç için zaten Source Code seçilmiş. UML ve Source Code aynı anda seçilemez.');
+                              return;
+                            }
+                          } else if (fileType === 'Source Code') {
+                            // Eğer zaten bir UML seçilmişse
+                            const hasUML = selectedFiles.some(f => f.type === 'UML');
+                            if (hasUML) {
+                              window.alert('Bu süreç için zaten UML seçilmiş. UML ve Source Code aynı anda seçilemez.');
+                              return;
+                            }
+                          }
+                        }
+                        
+                        // Eğer kısıtlama yoksa, normal işleme devam et
                         const updatedProcesses = currentProcesses.includes(processId)
                           ? currentProcesses.filter(p => p !== processId)
                           : [...currentProcesses, processId];
@@ -337,7 +365,9 @@ export default function TabPanel({
               <FormComponent 
                 process={process}
                 onAIModelUpdate={onAIModelUpdate}
+                onOutputFormatUpdate={onOutputFormatUpdate}
                 aiModels={aiModels}
+                outputFormats={outputFormats}
                 disabled={isDisabled}
                 onGeneratePrompt={async (formData) => {
                   try {
@@ -668,13 +698,39 @@ export default function TabPanel({
           </div>
         </div>
 
-        {/* Right Panel - OutputPanel bileşenine processes ve activeTab prop'larını geçir */}
+        {/* Right Panel */}
         <div className="w-1/2 flex flex-col min-h-0">
-          <OutputPanel 
-            output={output} 
-            activeTab={activeTab}
-            processes={processes}
-          />
+          {/* Header */}
+          <div className="flex-none h-16 px-6 flex items-center justify-between border-b border-gray-200 bg-white">
+            <h2 className="text-xl font-medium text-gray-900">
+              {activeTab === 'pipeline' ? 'Pipeline Output' : 
+               activeTab === 'files' ? '' : 
+               `${processes.find(p => p.id === activeTab)?.name || activeTab} Output`}
+            </h2>
+            <div className="flex items-center space-x-2">
+              {output && output.content && (
+                <span className="text-xs font-medium text-gray-500">
+                  {output.timestamp ? new Date(output.timestamp).toLocaleString() : ''}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {activeTab === 'files' ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-400 text-center">This is file management view. The output will be displayed when running processes.</p>
+              </div>
+            ) : (
+              <OutputPanel 
+                output={output}
+                activeTab={activeTab}
+                processes={processes}
+                outputFormats={outputFormats}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>

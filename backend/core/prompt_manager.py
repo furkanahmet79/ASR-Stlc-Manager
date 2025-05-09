@@ -212,56 +212,45 @@ def initialize_environment_setup_prompt():
         print("environment_setup_prompt koleksiyonu oluşturuldu.")
     prompt = {
         "process_type": "environment_setup",
-        "prompt_text": """You are responsible for preparing the environment setup as part of the Software Testing Life Cycle (STLC) process.
-You will be given:
-
-Source code files (such as requirements.txt, package.json, pom.xml, etc.)
-
-Additional requirement information (like preferred OS, database type, language version)
-
-Based on the provided input, your task is:
-
-Identify the programming language and its required version.
-
-Identify the main frameworks or libraries used.
-
-Recommend a suitable operating system (such as Windows 10+, Ubuntu 20.04+, macOS).
-
-List all dependencies.
-
-Specify the required database (if any).
-
-List additional required tools (e.g., pip, venv, npm, Maven).
-
-Write important installation notes (e.g., \"Python 3.10+ must be installed\", \"PostgreSQL client tools required\", etc.)
-
-}""",
+        "prompt_text": """Objective: You are tasked with preparing the environment setup as part of the Software Testing Life Cycle (STLC) process.
+You will receive two types of inputs:
+Source Code Files - These could be files like requirements.txt, package.json, pom.xml, setup.py, or other similar files, depending on the language.
+Requirement Document - Details about the preferred operating system, database, and language version.
+Based on this input, you should output the necessary environment setup in the form of a JSON object.
+Your Task:
+Identify the programming language and version required.
+Identify the main frameworks or libraries used in the project.
+Determine the recommended operating system (e.g., Ubuntu 20.04, Windows 10+, etc.).
+List the dependencies that need to be installed for the environment setup.
+Specify the database (if any) required by the project.
+Identify any tools required for installation (e.g., npm, pip, Maven).
+Provide installation notes with additional setup instructions (e.g., "Install Python 3.9+", "Ensure PostgreSQL client is installed""",
         "system_suffix": (
-    "Output Format:\n"
-    "Don't make any explanation, just give the json structure. Otherwise, the program may crash, just give the json structure.\n"
-    "You must output your result in JSON format with the following structure. The following is just an example. Fill in the variables according to the scheme, whatever should come in the files you throw in.:\n\n"
-    "{{\n"
-    "  \"environment_setup\": {{\n"
-    "    \"language\": \"Python\",\n"
-    "    \"language_version\": \">=3.9\",\n"
-    "    \"framework\": \"Flask\",\n"
-    "    \"operating_system\": \"Ubuntu 20.04\",\n"
-    "    \"dependencies\": [\n"
-    "      \"Flask==2.2.2\",\n"
-    "      \"requests>=2.26\",\n"
-    "      \"gunicorn>=20.1.0\"\n"
-    "    ],\n"
-    "    \"database\": \"Not Required\",\n"
-    "    \"required_tools\": [\n"
-    "      \"pip\",\n"
-    "      \"virtualenv\"\n"
-    "    ],\n"
-    "    \"installation_notes\": \"...\"\n"
-    "  }}\n"
-    "}}\n\n"
-    "Source Code:\n{code}\n"
-    "Requirement Document:\n{requirement_document}"
-),
+            "Output Format:\n"
+            "Don't make any explanation, just give the json structure. Otherwise, the program may crash, just give the json structure.\n"
+            "You must output your result in JSON format with the following structure.The following is just an example. Fill in the variables according to the scheme, whatever should come in the files you throw in.:\n\n"
+            "{{\n"
+            "  \"environment_setup\": {{\n"
+            "    \"language\": \"Python\",\n"
+            "    \"language_version\": \"=>3.9\",\n"
+            "    \"framework\": \"Flask\",\n"
+            "    \"operating_system\": \"Ubuntu 20.04\",\n"
+            "    \"dependencies\": [\n"
+            "      \"Flask==2.2.2\",\n"
+            "      \"requests>=2.26\",\n"
+            "      \"gunicorn>=20.1.0\"\n"
+            "    ],\n"
+            "    \"database\": \"Not Required\",\n"
+            "    \"required_tools\": [\n"
+            "      \"pip\",\n"
+            "      \"virtualenv\"\n"
+            "    ],\n"
+            "    \"installation_notes\": \"...\"\n"
+            "  }}\n"
+            "}}\n\n"
+            "Source Code:\n{code}\n"
+            "Requirement Document:\n{requirement_document}"
+        ),
         "description": "Base prompt for environment setup process",
         "created_at": datetime.now()
     }

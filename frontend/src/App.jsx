@@ -47,6 +47,8 @@ function AppContents() {
 	const [outputs, setOutputs] = useState({});
 
 	const [generatedPrompt, setGeneratedPrompt] = useState("");
+	// Çıktı formatlarını takip etmek için state ekliyoruz
+	const [outputFormats, setOutputFormats] = useState({});
 
 	// Combined file upload function that supports both direct and centralized file management
 	const handleFileUpload = async (processIdOrFiles, fileTypeOrInfo) => {
@@ -101,6 +103,14 @@ function AppContents() {
 		setAIModels(prev => ({
 			...prev,
 			[processId]: model
+		}));
+	};
+
+	const handleOutputFormatUpdate = (processId, format) => {
+		console.log(`[App] Output format updated for process ${processId}:`, format);
+		setOutputFormats(prev => ({
+			...prev,
+			[processId]: format
 		}));
 	};
 
@@ -616,9 +626,14 @@ function AppContents() {
 	};
 	
 	return (
-		<div className="h-screen flex flex-col bg-gray-50">
+		<div className="min-h-screen flex flex-col">
 			<Header />
-			<main className="flex-1 flex overflow-hidden">
+			<div className="flex-1 flex flex-col overflow-hidden">
+				{validationError && (
+					<div className="bg-red-100 text-red-700 p-3 text-center">
+						{validationError}
+					</div>
+				)}
 				<TabPanel
 					processes={processes}
 					activeTab={activeTab}
@@ -629,14 +644,15 @@ function AppContents() {
 					processFiles={processFiles}
 					onFileUpload={handleFileUpload}
 					onAIModelUpdate={handleAIModelUpdate}
+					onOutputFormatUpdate={handleOutputFormatUpdate}
 					aiModels={aiModels}
+					outputFormats={outputFormats}
 					processPrompts={processPrompts}
 					onPromptUpdate={handlePromptUpdate}
 					pipelineStatus={pipelineStatus}
 					onRun={handleRun}
 					validationError={validationError}
-					output={outputs[activeTab] || null}
-					outputs={outputs}
+					output={output}
 					isPipelineEnabled={isPipelineEnabled}
 					onTogglePipeline={setIsPipelineEnabled}
 					managedFiles={managedFiles}
@@ -647,7 +663,7 @@ function AppContents() {
 					setSelectedFileIds={setSelectedFileIds}
 					onGeneratePrompt={handleGeneratePrompt}
 				/>
-			</main>
+			</div>
 		</div>
 	);
 }
