@@ -2,6 +2,7 @@ import os
 import xml.etree.ElementTree as ET
 from utils.XmlParser import parse_uml_xml_to_json
 import json
+from utils.UmlToXml import convert_uml_to_xml
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -21,6 +22,11 @@ class FileHandler:
 
     def read_file(self, path):
         try:
+            if path.lower().endswith('.uml'):
+                # .uml dosyasını XML string'e çevir ve döndür
+                xml_content = convert_uml_to_xml(path)
+                print(f"[FileHandler] UML'den XML'e (ilk 500 karakter):\n{xml_content[:500]}")
+                return xml_content
             with open(path, 'r', encoding='utf-8') as f:
                 content = f.read()
                 if path.lower().endswith('.xml'):
