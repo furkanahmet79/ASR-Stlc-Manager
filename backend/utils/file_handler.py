@@ -1,4 +1,8 @@
 import os
+import xml.etree.ElementTree as ET
+from utils.XmlParser import parse_uml_xml_to_json
+import json
+from utils.UmlToXml import convert_uml_to_xml
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -17,8 +21,38 @@ class FileHandler:
         return file_paths
 
     def read_file(self, path):
-        with open(path, 'r', encoding='utf-8') as f:
-            return f.read()
+        try:
+            if path.lower().endswith('.uml'):
+                # .uml dosyasını XML string'e çevir ve döndür
+                xml_content = convert_uml_to_xml(path)
+                print(f"[FileHandler] UML'den XML'e (ilk 500 karakter):\n{xml_content[:500]}")
+                return xml_content
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                if path.lower().endswith('.xml'):
+                    # XML'i JSON'a çevir
+                    json_obj = parse_uml_xml_to_json(content)
+                    json_str = json.dumps(json_obj, ensure_ascii=False, indent=2)
+                    print(f"[FileHandler] XML'den JSON üretildi (ilk 500 karakter):\n{json_str[:500]}")
+                    return json_str
+                else:
+                    print(f"[FileHandler] Okunan dosya içeriği (ilk 500 karakter):\n{content[:500]}")
+                return content
+        except UnicodeDecodeError:
+            # Farklı encoding ile tekrar dene
+            with open(path, 'r', encoding='ISO-8859-9') as f:
+                content = f.read()
+                if path.lower().endswith('.xml'):
+                    json_obj = parse_uml_xml_to_json(content)
+                    json_str = json.dumps(json_obj, ensure_ascii=False, indent=2)
+                    print(f"[FileHandler] XML'den JSON üretildi (ilk 500 karakter, ISO-8859-9):\n{json_str[:500]}")
+                    return json_str
+                else:
+                    print(f"[FileHandler] Okunan dosya içeriği (ilk 500 karakter, ISO-8859-9):\n{content[:500]}")
+                return content
+        except Exception as e:
+            print(f"[FileHandler] Dosya okunamadı: {str(e)}")
+            return f"Dosya okunamadı: {str(e)}"
 
     def cleanup_files(self, file_paths):
         for path in file_paths:

@@ -338,9 +338,9 @@ function AppContents() {
 				files.length > 0
 			) {
 				const hasRequirementDoc = files.some(file => file.type === 'Requirement Document');
-				const hasSourceCode = files.some(file => file.type === 'Source Code');
-				if (!hasRequirementDoc || !hasSourceCode) {
-					window.alert('Bu süreç için hem Requirement Document hem de Source Code dosyası yüklemelisiniz.');
+				const hasCodeOrUML = files.some(file => file.type === 'Source Code' || file.type === 'UML');
+				if (!hasRequirementDoc || !hasCodeOrUML) {
+					window.alert('Bu süreç için hem Requirement Document hem de Source Code veya UML dosyası yüklemelisiniz.');
 					setPipelineStatus(prev => ({ ...prev, [processId]: 'idle' }));
 					return;
 				}
